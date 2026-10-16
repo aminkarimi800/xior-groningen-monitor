@@ -1,0 +1,71 @@
+name: Xior Groningen monitor
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # every 5 minutes (GitHub may delay scheduled runs a bit)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "check = normal check, test = send a test message to Bale"
+        type: choice
+        options: [check, test]
+        default: check
+
+permissions:
+  contents: write   # to commit state.json back to the repo
+
+concurrency:
+  group: xior-monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Send test message
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'test'
+        env:
+          BALE_BOT_TOKEN: ${{ secrets.BALE_BOT_TOKEN }}
+          BALE_CHAT_ID: ${{ secrets.BALE_CHAT_ID }}
+        run: python xior_monitor.py --test
+
+      - name: Check availability
+        if: github.event_name != 'workflow_dispatch' || inputs.mode == 'check'
+        env:
+          BALE_BOT_TOKEN: ${{ secrets.BALE_BOT_TOKEN }}
+          BALE_CHAT_ID: ${{ secrets.BALE_CHAT_ID }}
+        run: python xior_monitor.py --once
+
+      - name: Save state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update state"
+          elif [ $(( $(date +%s) - $(git log -1 --format=%ct) )) -gt 4320000 ]; then
+            # GitHub pauses scheduled workflows after 60 days without repo activity
+            git commit --allow-empty -m "Keepalive"
+          else
+            exit 0
+          fi
+          git pull --rebase && git push

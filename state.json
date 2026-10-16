@@ -1,0 +1,20 @@
+{
+  "residences": {
+    "Oosterhamrikkade": {
+      "booked": true,
+      "label": "Fully booked",
+      "since": "2026-10-16 21:03:52"
+    },
+    "Eendrachtskade": {
+      "booked": true,
+      "label": "Fully booked",
+      "since": "2026-10-16 21:03:52"
+    },
+    "Zernike Tower": {
+      "booked": true,
+      "label": "Fully booked",
+      "since": "2026-10-16 21:03:52"
+    }
+  },
+  "failures": 0
+}
