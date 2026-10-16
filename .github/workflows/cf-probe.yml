@@ -1,0 +1,22 @@
+name: Cloudflare probe (temporary)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        s: [pw-chrome-headed, patchright-headed, patchright-headless, sb-uc]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb > /dev/null
+          pip install -q playwright patchright seleniumbase pyautogui
+      - run: xvfb-run -a -s "-screen 0 1366x900x24" python cf_probe.py ${{ matrix.s }}
